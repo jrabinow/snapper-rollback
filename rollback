@@ -1,0 +1,89 @@
+#!/usr/bin/env -S python
+import argparse
+import btrfsutil
+import configparser
+import datetime
+import os
+import shutil
+
+# Create argument parser
+parser = argparse.ArgumentParser(description="Rollback to snapper snapshot based on snapshot ID",
+                                 prog="rollback")
+# Adding arguments
+parser.add_argument("snapid", type=str,
+                    help="ID of snapper snapshot")
+# Parse arguments
+args = parser.parse_args()
+
+# Config File
+configfile = "/etc/rollback.conf"
+config = configparser.ConfigParser()
+config.read(f"{configfile}")
+
+# Internal Variables
+
+snapid = args.snapid
+subvolroot = config.get("subvolumes", "subvolroot")
+subvolsnap = config.get("subvolumes", "subvolsnap")
+subvolid5 = config.get("subvolumes", "subvolid5")
+date = datetime.datetime.now()
+date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
+subvolroot = f"{subvolid5}/{subvolroot}"
+subvolsnap = f"{subvolid5}/{subvolsnap}/{snapid}/snapshot"
+subvololdroot = f"{subvolroot}{date}"
+
+
+def autoelevate():  # Elevate user to root if user isn't root
+    sutools = {"doas": "doas", "sudo": "sudo", "su": "su - root -c"}
+    subin = config.get("elevation", "subin")
+    if subin != "auto":
+        return subin
+    for supath, subin in sutools.items():
+        if shutil.which(supath) is not None:
+            return subin
+
+
+def verifyrollback():  # Tell users what actions will be taken
+    print("The following actions are about to be taken:")
+    print(f"Save old {subvolroot} to {subvololdroot}")
+    print(f"Roll {subvolroot} back to {subvolsnap}")
+    print(f"Set default subvolume to new {subvolroot}")
+
+
+def isroot():  # Check user EUID to determine if they are root, if they are not then elevate
+    if os.geteuid() != 0:
+        subin = autoelevate()
+        if subin is None:
+            print("No su tool detected, run as root")
+            exit()
+        print(f"User is not root, rerunning script with {subin}...")
+        os.system(f"{subin} python {os.path.realpath(__file__)} {snapid}")
+        exit()
+
+
+def rollback():
+    try:
+        print(f"Saving old {subvolroot} to {subvololdroot}")
+        os.rename(f"{subvolroot}", f"{subvololdroot}")
+        print(f"Rolling {subvolroot} back to {subvolsnap}")
+        btrfsutil.create_snapshot(f"{subvolsnap}", f"{subvolroot}")
+        print(f"Setting new {subvolroot} as default subvolume")
+        btrfsutil.set_default_subvolume(f"{subvolroot}")
+        print(f"Rollback to {subvolsnap} complete. Reboot to finish")
+    except FileNotFoundError as MissingSubvolroot:
+        print(f"{MissingSubvolroot}: Is {subvolid5} mounted with the option subvolid=5?")
+    except btrfsutil.BtrfsUtilError as BtrfsErr:
+        print(f"{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?")
+        if not os.path.isdir(f"{subvolroot}"):
+            print(f"Moving {subvololdroot} back to {subvolroot}")
+            os.rename(f"{subvololdroot}", f"{subvolroot}")
+
+
+verifyrollback()
+confirmation = input("Type \"Confirm\" to continue: ")
+if confirmation != "Confirm":
+    print("No confirmation, exiting...")
+    exit()
+isroot()
+print("Confirmed, rolling back...")
+rollback()
