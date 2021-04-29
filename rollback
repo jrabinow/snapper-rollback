@@ -61,7 +61,7 @@ def isroot():  # Check user EUID to determine if they are root, if they are not 
         exit()
 
 
-def rollback():
+def rollback():  # Rename root subvolume with the date, then snapshot the snapshot to the old root location
     try:
         print(f"Saving old {subvolroot} to {subvololdroot}")
         os.rename(f"{subvolroot}", f"{subvololdroot}")
@@ -72,9 +72,9 @@ def rollback():
         print(f"Rollback to {subvolsnap} complete. Reboot to finish")
     except FileNotFoundError as MissingSubvolroot:
         print(f"{MissingSubvolroot}: Is {subvolid5} mounted with the option subvolid=5?")
-    except btrfsutil.BtrfsUtilError as BtrfsErr:
+    except btrfsutil.BtrfsUtilError as BtrfsErr:  # Handle errors from btrfs utilities
         print(f"{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?")
-        if not os.path.isdir(f"{subvolroot}"):
+        if not os.path.isdir(f"{subvolroot}"):  # Move old root back if btrfs utilities fail to prevent breakage
             print(f"Moving {subvololdroot} back to {subvolroot}")
             os.rename(f"{subvololdroot}", f"{subvolroot}")
 
