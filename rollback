@@ -22,15 +22,8 @@ config.read(f"{configfile}")
 
 # Internal Variables
 
-snapid = args.snapid
-subvolroot = config.get("subvolumes", "subvolroot")
-subvolsnap = config.get("subvolumes", "subvolsnap")
-subvolid5 = config.get("subvolumes", "subvolid5")
 date = datetime.datetime.now()
 date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
-subvolroot = f"{subvolid5}/{subvolroot}"
-subvolsnap = f"{subvolid5}/{subvolsnap}/{snapid}/snapshot"
-subvololdroot = f"{subvolroot}{date}"
 
 
 # Text properties
@@ -47,10 +40,19 @@ class Color:
     END = '\033[0m'
 
 
+class FilePath:
+    subvolroot = config.get("subvolumes", "subvolroot")
+    subvolsnap = config.get("subvolumes", "subvolsnap")
+    subvolid5 = config.get("subvolumes", "subvolid5")
+    subvolroot = f"{subvolid5}/{subvolroot}"
+    subvolsnap = f"{subvolid5}/{subvolsnap}/{args.snapid}/snapshot"
+    subvololdroot = f"{subvolroot}{date}"
+
+
 class PrintPath:
-    subvolroot = f"{Color.BOLD}{subvolroot}{Color.END}"
-    subvololdroot = f"{Color.BOLD}{subvololdroot}{Color.END}"
-    subvolsnap = f"{Color.BOLD}{subvolsnap}{Color.END}"
+    subvolroot = f"{Color.BOLD}{FilePath.subvolroot}{Color.END}"
+    subvololdroot = f"{Color.BOLD}{FilePath.subvololdroot}{Color.END}"
+    subvolsnap = f"{Color.BOLD}{FilePath.subvolsnap}{Color.END}"
 
 
 def autoelevate():  # Elevate user to root if user isn't root
@@ -77,26 +79,26 @@ def isroot():  # Check user EUID to determine if they are root, if they are not 
             print("No su tool detected, run as root")
             exit()
         print(f"User is not root, rerunning script with {subin}...")
-        os.system(f"{subin} python {os.path.realpath(__file__)} {snapid}")
+        os.system(f"{subin} python {os.path.realpath(__file__)} {args.snapid}")
         exit()
 
 
 def rollback():  # Rename root subvolume with the date, then snapshot the snapshot to the old root location
     try:
         print(f"Saving old {PrintPath.subvolroot} to {PrintPath.subvololdroot}")
-        os.rename(f"{subvolroot}", f"{subvololdroot}")
+        os.rename(f"{FilePath.subvolroot}", f"{FilePath.subvololdroot}")
         print(f"Rolling {PrintPath.subvolroot} back to {PrintPath.subvolsnap}")
-        btrfsutil.create_snapshot(f"{subvolsnap}", f"{subvolroot}")
+        btrfsutil.create_snapshot(f"{FilePath.subvolsnap}", f"{FilePath.subvolroot}")
         print(f"Setting new {PrintPath.subvolroot} as default subvolume")
-        btrfsutil.set_default_subvolume(f"{subvolroot}")
+        btrfsutil.set_default_subvolume(f"{FilePath.subvolroot}")
         print(f"Rollback to {PrintPath.subvolsnap} complete. Reboot to finish")
     except FileNotFoundError as MissingSubvolroot:
-        print(f"{MissingSubvolroot}: Is {subvolid5} mounted with the option subvolid=5?")
+        print(f"{MissingSubvolroot}: Is {FilePath.subvolid5} mounted with the option subvolid=5?")
     except btrfsutil.BtrfsUtilError as BtrfsErr:  # Handle errors from btrfs utilities
         print(f"{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?")
-        if not os.path.isdir(f"{subvolroot}"):  # Move old root back if btrfs utilities fail to prevent breakage
+        if not os.path.isdir(f"{FilePath.subvolroot}"):  # Move old root back if btrfs utilities fail
             print(f"Moving {PrintPath.subvololdroot} back to {PrintPath.subvolroot}")
-            os.rename(f"{subvololdroot}", f"{subvolroot}")
+            os.rename(f"{FilePath.subvololdroot}", f"{FilePath.subvolroot}")
 
 
 verifyrollback()
