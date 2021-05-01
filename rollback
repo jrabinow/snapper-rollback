@@ -98,10 +98,13 @@ def rollback():  # Rename root subvolume with the date, then snapshot the snapsh
             os.rename(f"{subvololdroot.path}", f"{subvolroot.path}")
 
 
-verifyrollback()
-confirmation = input("Type \"Confirm\" to continue: ")
-if confirmation != "Confirm":
-    print("No confirmation, exiting...")
+try:
+    verifyrollback()
+    confirmation = input("Type \"Confirm\" to continue: ")
+    if confirmation != "Confirm":
+        print("No confirmation, exiting...")
+        exit()
+except KeyboardInterrupt as UserExit:
     exit()
 isroot()
 print("Confirmed, rolling back...")
