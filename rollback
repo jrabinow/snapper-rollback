@@ -92,7 +92,7 @@ def rollback():  # Rename root subvolume with the date, then snapshot the snapsh
     except FileNotFoundError as MissingSubvolroot:
         print(f"{MissingSubvolroot}: Is {subvolid5.bold} mounted with the option subvolid=5?")
     except btrfsutil.BtrfsUtilError as BtrfsErr:  # Handle errors from btrfs utilities
-        print(f"{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?")
+        print(f"{Color.BOLD + Color.RED}{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?{Color.END}")
         if not os.path.isdir(f"{subvolroot.path}"):  # Move old root back if btrfs utilities fail
             print(f"Moving {subvololdroot.bold} back to {subvolroot.bold}")
             os.rename(f"{subvololdroot.path}", f"{subvolroot.path}")
