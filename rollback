@@ -46,10 +46,10 @@ class FilePath:
         self.bold = Color.BOLD + path + Color.END
 
 
-subvolroot = FilePath(f"{config.get('subvolumes', 'subvolroot')}")
 subvolid5 = FilePath(f"{config.get('subvolumes', 'subvolid5')}")
+subvolroot = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolroot')}")
+subvololdroot = FilePath(f"{subvolroot.path}{date}")
 subvolsnap = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolsnap')}/{args.snapid}/snapshot")
-subvololdroot = FilePath(f"{subvolid5.path}/{subvolroot.path}{date}")
 
 
 def autoelevate():  # Elevate user to root if user isn't root
