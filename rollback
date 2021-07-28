@@ -1,4 +1,5 @@
 #!/usr/bin/env -S python
+
 import argparse
 import btrfsutil
 import configparser
@@ -9,16 +10,16 @@ import shutil
 
 # Text properties
 class Color(object):
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
+    PURPLE = "\033[95m"
+    CYAN = "\033[96m"
+    DARKCYAN = "\033[36m"
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    END = "\033[0m"
 
 
 class FilePath(object):
@@ -29,11 +30,11 @@ class FilePath(object):
 
 # Create argument parser
 def parse_args():
-    parser = argparse.ArgumentParser(description="Rollback to snapper snapshot based on snapshot ID",
-                                    prog="rollback")
+    parser = argparse.ArgumentParser(
+        description="Rollback to snapper snapshot based on snapshot ID", prog="rollback"
+    )
     # Adding arguments
-    parser.add_argument("snapid", type=str,
-                        help="ID of snapper snapshot")
+    parser.add_argument("snapid", type=str, help="ID of snapper snapshot")
     # Parse arguments
     args = parser.parse_args()
     return args
@@ -60,7 +61,9 @@ def autoelevate(config):
 
 # Tell users what actions will be taken
 def verifyrollback(subvolroot, subvololdroot, subvolsnap):
-    print(f"{Color.BOLD + Color.RED}The following actions are about to be taken:{Color.END}")
+    print(
+        f"{Color.BOLD + Color.RED}The following actions are about to be taken:{Color.END}"
+    )
     print(f"Save old {subvolroot.bold} to {subvololdroot.bold}")
     print(f"Roll {subvolroot.bold} back to {subvolsnap.bold}")
     print(f"Set default subvolume to new {subvolroot.bold}")
@@ -89,10 +92,16 @@ def rollback(subvolid5, subvolroot, subvololdroot, subvolsnap):
         btrfsutil.set_default_subvolume(f"{subvolroot.path}")
         print(f"Rollback to {subvolsnap.bold} complete. Reboot to finish")
     except FileNotFoundError as MissingSubvolroot:
-        print(f"{MissingSubvolroot}: Is {subvolid5.bold} mounted with the option subvolid=5?")
-    except btrfsutil.BtrfsUtilError as BtrfsErr:  # Handle errors from btrfs utilities
-        print(f"{Color.BOLD + Color.RED}{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?{Color.END}")
-        if not os.path.isdir(f"{subvolroot.path}"):  # Move old root back if btrfs utilities fail
+        print(
+            f"{MissingSubvolroot}: Is {subvolid5.bold} mounted with the option subvolid=5?"
+        )
+    except btrfsutil.BtrfsUtilError as BtrfsErr:
+        # Handle errors from btrfs utilities
+        print(
+            f"{Color.BOLD + Color.RED}{BtrfsErr}: Is the snapshot ID and snapshot subvolume correct?{Color.END}"
+        )
+        # Move old root back if btrfs utilities fail
+        if not os.path.isdir(f"{subvolroot.path}"):
             print(f"Moving {subvololdroot.bold} back to {subvolroot.bold}")
             os.rename(f"{subvololdroot.path}", f"{subvolroot.path}")
 
@@ -109,11 +118,13 @@ def main():
     subvolid5 = FilePath(f"{config.get('subvolumes', 'subvolid5')}")
     subvolroot = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolroot')}")
     subvololdroot = FilePath(f"{subvolroot.path}{date}")
-    subvolsnap = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolsnap')}/{args.snapid}/snapshot")
+    subvolsnap = FilePath(
+        f"{subvolid5.path}/{config.get('subvolumes', 'subvolsnap')}/{args.snapid}/snapshot"
+    )
 
     try:
         verifyrollback(subvolroot, subvololdroot, subvolsnap)
-        confirmation = input("Type \"Confirm\" to continue: ")
+        confirmation = input('Type "Confirm" to continue: ')
         if confirmation != "Confirm":
             print("No confirmation, exiting...")
             exit()
