@@ -74,17 +74,6 @@ def mount_subvolid5(target, source=None):
         raise OSError("unable to mount {}".format(target))
 
 
-# Elevate user to root if user isn't root
-def autoelevate(config):
-    sutools = {"doas": "doas", "sudo": "sudo", "su": "su - root -c"}
-    subin = config.get("elevation", "subin")
-    if subin != "auto":
-        return subin
-    for supath, subin in sutools.items():
-        if shutil.which(supath) is not None:
-            return subin
-
-
 # Tell users what actions will be taken
 def verifyrollback(subvolroot, subvololdroot, subvolsnap):
     print(
@@ -93,18 +82,6 @@ def verifyrollback(subvolroot, subvololdroot, subvolsnap):
     print(f"Save old {subvolroot.bold} to {subvololdroot.bold}")
     print(f"Roll {subvolroot.bold} back to {subvolsnap.bold}")
     print(f"Set default subvolume to new {subvolroot.bold}")
-
-
-# Check user EUID to determine if they are root, if they are not then elevate
-def isroot(config):
-    if os.geteuid() != 0:
-        subin = autoelevate(config)
-        if subin is None:
-            print("No su tool detected, run as root")
-            exit()
-        print(f"User is not root, rerunning script with {subin}...")
-        os.system(f"{subin} python {os.path.realpath(__file__)} {args.snapid}")
-        exit()
 
 
 # Rename root subvolume with the date, then snapshot the snapshot to the old root location
@@ -136,7 +113,6 @@ def main():
 
     args = parse_args()
 
-    # Internal Variables
     date = datetime.datetime.now()
     date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
     config = read_config(args.config)
@@ -156,7 +132,6 @@ def main():
             exit()
     except KeyboardInterrupt as UserExit:
         exit()
-    isroot(config)
     print("Confirmed, rolling back...")
     try:
         if args.mount:
