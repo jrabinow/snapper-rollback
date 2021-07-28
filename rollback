@@ -35,14 +35,20 @@ def parse_args():
     )
     # Adding arguments
     parser.add_argument("snapid", type=str, help="ID of snapper snapshot")
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default="/etc/rollback.conf",
+        help="configuration file to use",
+    )
     # Parse arguments
     args = parser.parse_args()
     return args
 
 
-def read_config():
+def read_config(configfile="/etc/rollback.conf"):
     # Config File
-    configfile = "/etc/rollback.conf"
     config = configparser.ConfigParser()
     config.read(f"{configfile}")
     return config
@@ -113,7 +119,7 @@ def main():
     # Internal Variables
     date = datetime.datetime.now()
     date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
-    config = read_config()
+    config = read_config(args.config)
 
     subvolid5 = FilePath(f"{config.get('subvolumes', 'subvolid5')}")
     subvolroot = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolroot')}")
