@@ -42,6 +42,11 @@ def parse_args():
         default="/etc/rollback.conf",
         help="configuration file to use",
     )
+    parser.add_argument(
+        "--mount",
+        action="store_true",
+        help="mount subvolid5 before performing the rollback operation",
+    )
     # Parse arguments
     args = parser.parse_args()
     return args
@@ -52,6 +57,21 @@ def read_config(configfile="/etc/rollback.conf"):
     config = configparser.ConfigParser()
     config.read(f"{configfile}")
     return config
+
+
+# There is no built-in `mount` function in python, let's shell out to an `os.system` call
+# Also see https://stackoverflow.com/a/29156997 for a cleaner alternative
+# To make use of this feature, ensure that you have an entry for subvolid5
+# (check out the `noauto` option) in /etc/fstab:
+#
+# /dev/sda1  /btrfsroot  btrfs  noauto,rw,subvolid=5 0 0
+
+# /dev/sda1 IS AN EXAMPLE ONLY, YOU WILL HAVE TO ADAPT THIS TO YOUR SYSTEM PARTITION LAYOUT
+# See fdisk(8) and fstab(5)
+def mount_subvolid5(target, source=None):
+    ret = os.system("mount {} {}".format(source or "", target))
+    if ret != 0:
+        raise OSError("unable to mount {}".format(target))
 
 
 # Elevate user to root if user isn't root
@@ -138,7 +158,13 @@ def main():
         exit()
     isroot(config)
     print("Confirmed, rolling back...")
-    rollback(subvolid5, subvolroot, subvololdroot, subvolsnap)
+    try:
+        if args.mount:
+            mount_subvolid5(config.get("subvolumes", "subvolid5"))
+        rollback(subvolid5, subvolroot, subvololdroot, subvolsnap)
+    except PermissionError as e:
+        print("Permission denied: {}".format(e))
+        exit(0)
 
 
 if __name__ == "__main__":
