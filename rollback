@@ -6,28 +6,9 @@ import datetime
 import os
 import shutil
 
-# Create argument parser
-parser = argparse.ArgumentParser(description="Rollback to snapper snapshot based on snapshot ID",
-                                 prog="rollback")
-# Adding arguments
-parser.add_argument("snapid", type=str,
-                    help="ID of snapper snapshot")
-# Parse arguments
-args = parser.parse_args()
-
-# Config File
-configfile = "/etc/rollback.conf"
-config = configparser.ConfigParser()
-config.read(f"{configfile}")
-
-# Internal Variables
-
-date = datetime.datetime.now()
-date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
-
 
 # Text properties
-class Color:
+class Color(object):
     PURPLE = '\033[95m'
     CYAN = '\033[96m'
     DARKCYAN = '\033[36m'
@@ -40,19 +21,34 @@ class Color:
     END = '\033[0m'
 
 
-class FilePath:
+class FilePath(object):
     def __init__(self, path):
         self.path = path
         self.bold = Color.BOLD + path + Color.END
 
 
-subvolid5 = FilePath(f"{config.get('subvolumes', 'subvolid5')}")
-subvolroot = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolroot')}")
-subvololdroot = FilePath(f"{subvolroot.path}{date}")
-subvolsnap = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolsnap')}/{args.snapid}/snapshot")
+# Create argument parser
+def parse_args():
+    parser = argparse.ArgumentParser(description="Rollback to snapper snapshot based on snapshot ID",
+                                    prog="rollback")
+    # Adding arguments
+    parser.add_argument("snapid", type=str,
+                        help="ID of snapper snapshot")
+    # Parse arguments
+    args = parser.parse_args()
+    return args
 
 
-def autoelevate():  # Elevate user to root if user isn't root
+def read_config():
+    # Config File
+    configfile = "/etc/rollback.conf"
+    config = configparser.ConfigParser()
+    config.read(f"{configfile}")
+    return config
+
+
+# Elevate user to root if user isn't root
+def autoelevate(config):
     sutools = {"doas": "doas", "sudo": "sudo", "su": "su - root -c"}
     subin = config.get("elevation", "subin")
     if subin != "auto":
@@ -62,16 +58,18 @@ def autoelevate():  # Elevate user to root if user isn't root
             return subin
 
 
-def verifyrollback():  # Tell users what actions will be taken
+# Tell users what actions will be taken
+def verifyrollback(subvolroot, subvololdroot, subvolsnap):
     print(f"{Color.BOLD + Color.RED}The following actions are about to be taken:{Color.END}")
     print(f"Save old {subvolroot.bold} to {subvololdroot.bold}")
     print(f"Roll {subvolroot.bold} back to {subvolsnap.bold}")
     print(f"Set default subvolume to new {subvolroot.bold}")
 
 
-def isroot():  # Check user EUID to determine if they are root, if they are not then elevate
+# Check user EUID to determine if they are root, if they are not then elevate
+def isroot(config):
     if os.geteuid() != 0:
-        subin = autoelevate()
+        subin = autoelevate(config)
         if subin is None:
             print("No su tool detected, run as root")
             exit()
@@ -80,7 +78,8 @@ def isroot():  # Check user EUID to determine if they are root, if they are not 
         exit()
 
 
-def rollback():  # Rename root subvolume with the date, then snapshot the snapshot to the old root location
+# Rename root subvolume with the date, then snapshot the snapshot to the old root location
+def rollback(subvolid5, subvolroot, subvololdroot, subvolsnap):
     try:
         print(f"Saving old {subvolroot.bold} to {subvololdroot.bold}")
         os.rename(f"{subvolroot.path}", f"{subvololdroot.path}")
@@ -98,14 +97,32 @@ def rollback():  # Rename root subvolume with the date, then snapshot the snapsh
             os.rename(f"{subvololdroot.path}", f"{subvolroot.path}")
 
 
-try:
-    verifyrollback()
-    confirmation = input("Type \"Confirm\" to continue: ")
-    if confirmation != "Confirm":
-        print("No confirmation, exiting...")
+def main():
+
+    args = parse_args()
+
+    # Internal Variables
+    date = datetime.datetime.now()
+    date = f"{date.strftime('%Y-%m-%dT%H:%M')}"
+    config = read_config()
+
+    subvolid5 = FilePath(f"{config.get('subvolumes', 'subvolid5')}")
+    subvolroot = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolroot')}")
+    subvololdroot = FilePath(f"{subvolroot.path}{date}")
+    subvolsnap = FilePath(f"{subvolid5.path}/{config.get('subvolumes', 'subvolsnap')}/{args.snapid}/snapshot")
+
+    try:
+        verifyrollback(subvolroot, subvololdroot, subvolsnap)
+        confirmation = input("Type \"Confirm\" to continue: ")
+        if confirmation != "Confirm":
+            print("No confirmation, exiting...")
+            exit()
+    except KeyboardInterrupt as UserExit:
         exit()
-except KeyboardInterrupt as UserExit:
-    exit()
-isroot()
-print("Confirmed, rolling back...")
-rollback()
+    isroot(config)
+    print("Confirmed, rolling back...")
+    rollback(subvolid5, subvolroot, subvololdroot, subvolsnap)
+
+
+if __name__ == "__main__":
+    main()
