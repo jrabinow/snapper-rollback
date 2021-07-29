@@ -1,0 +1,5 @@
+/rollback-*.tar.zst
+/pkg
+/src
+*.swp
+/snapper-rollback-*.pkg.tar.zst
