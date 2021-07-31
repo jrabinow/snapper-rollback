@@ -31,7 +31,7 @@ class FilePath(object):
 # Create argument parser
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Rollback to snapper snapshot based on snapshot ID", prog="rollback"
+        description="Rollback to snapper snapshot based on snapshot ID",
     )
     # Adding arguments
     parser.add_argument("snapid", type=str, help="ID of snapper snapshot")
@@ -39,7 +39,7 @@ def parse_args():
         "-c",
         "--config",
         type=str,
-        default="/etc/rollback.conf",
+        default="/etc/snapper/snapper-rollback.conf",
         help="configuration file to use",
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def parse_args():
     return args
 
 
-def read_config(configfile="/etc/rollback.conf"):
+def read_config(configfile="/etc/snapper/snapper-rollback.conf"):
     # Config File
     config = configparser.ConfigParser()
     config.read(f"{configfile}")
