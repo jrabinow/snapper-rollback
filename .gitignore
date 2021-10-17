@@ -1,6 +1,7 @@
 /pkg
 /src
 /snapper-rollback-*.pkg.tar.zst
+/rollback-git
 
 # stolen from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # vim .swp files
