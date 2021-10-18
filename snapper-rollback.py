@@ -15,9 +15,7 @@ import configparser
 import logging
 import os
 import pathlib
-import stat
 import sys
-import tempfile
 
 
 LOG = logging.getLogger()
@@ -26,84 +24,6 @@ formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 ch = logging.StreamHandler()
 ch.setFormatter(formatter)
 LOG.addHandler(ch)
-
-
-def verify_migration():
-    """this function handles migrating from legacy to new config file"""
-
-    # this package conflicts with rollback-git, so rollback-git should be
-    # uninstalled when we run this. However, pacman appends `.pacsave` to config
-    # files so we should be checking for /etc/rollback.conf.pacsave, NOT
-    # /etc/rollback.conf
-    if os.path.isfile("/etc/rollback.conf.pacsave"):
-
-        try:
-            legacy_config = read_config("/etc/rollback.conf.pacsave")
-            subvolroot = legacy_config.get("subvolumes", "subvolroot")
-            subvolsnap = legacy_config.get("subvolumes", "subvolsnap")
-            subvolid5 = legacy_config.get("subvolumes", "subvolid5")
-        except configparser.NoOptionError as e:
-            LOG.error("invalid legacy config, falling back to default values")
-            subvolroot = "@"
-            subvolsnap = "@snapshots"
-            subvolid5 = "/btrfsroot"
-
-        with tempfile.NamedTemporaryFile(
-            prefix="migrate_cfg_", suffix=".sh", delete=False, mode="w"
-        ) as f:
-            f.write(
-                f"""#!/bin/sh
-set -e -u -o pipefail
-
-cat > /tmp/snapper-rollback.conf << EOF
-# Rollback to snapper snapshot
-#
-# Requires a flat subvolume layout like specified here:
-# https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout
-#
-# Run with snapshot number as an argument like "snapper-rollback 642"
-# This can be run either from your installed system or from a live arch ISO if
-# you adjust the variables accordingly
-
-[root]
-# Name of your root subvolume
-subvol_main = {subvolroot}
-# Name of your snapper snapshot subvolume
-subvol_snapshots = {subvolsnap}
-# If you haven't already mounted it there yourself, your btrfs partition with
-# subvolid=5 will automatically be mounted to this mountpoint
-mountpoint = {subvolid5}
-# if btrfs subvol id 5 isn't mounted, then mount this device to \\`mountpoint\\`
-# directory. This setting is optional, but if unset, you'll have to mount the
-# partition manually!
-#dev = /dev/sda42
-EOF
-mv /tmp/snapper-rollback.conf /etc/
-
-cat << EOF
-Success! You can now delete /etc/rollback.conf.pacsave if you wish. You can also
-save this script and run it again once you've rebooted into your rolled-back
-system.
-
-To continue rolling back your system, simply rerun \\`snapper-rollback\\`
-EOF
-"""
-            )
-        st = os.stat(f.name)
-        os.chmod(f.name, st.st_mode | stat.S_IEXEC)
-
-        print(
-            """
-Hey there, sorry for the interruption! A few things have changed since you installed this script.
-Let's migrate your config and you'll be good to go!
-Please run the following command from a shell:
-
-$ sudo {}
-""".format(
-                f.name
-            )
-        )
-        sys.exit(0)
 
 
 def parse_args():
@@ -206,8 +126,6 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
 
 
 def main():
-    verify_migration()
-
     args = parse_args()
     config = read_config(args.config)
 
