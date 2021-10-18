@@ -9,8 +9,9 @@ depends=('coreutils' 'python' 'btrfs-progs')
 provides=('snapper-rollback')
 conflicts=('rollback-git')
 backup=(etc/snapper-rollback.conf)
+install=snapper-rollback.install
 source=('snapper-rollback.py' 'snapper-rollback.conf')
-sha256sums=('af91e983ead5fb5196274114e580bd42385423ddc7653166e288f8f877486348'
+sha256sums=('b855063200079889c67865445700dd99d76b17f90b2396754cea2adf68d9ba9b'
             '71b9aebb4f75cd3a26a022aca486b18901ad2bfb5361cd4c07bab8349918256d')
 
 package() {
