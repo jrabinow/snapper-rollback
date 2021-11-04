@@ -1,10 +1,10 @@
 # Snapper-Rollback
 
-Python script to rollback BTRFS systems using the subvolume layout specified here: https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout
+Python script to rollback BTRFS systems using the [ArchWiki suggested subvolume layout](https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout)
 
 ## Installation
 ### ArchLinux
-install through the AUR, or clone the repo and run `makepkg -sri`
+Install through the AUR, or download the [PKGBUILD file](https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=snapper-rollback) and run `makepkg -sri` while in the same directory
 
 ### Other
 ```
@@ -13,7 +13,6 @@ cd snapper-rollback
 sudo cp snapper-rollback.py /usr/local/sbin/snapper-rollback
 sudo cp snapper-rollback.conf /etc/
 ```
-
 
 ## Usage
 ```
@@ -41,11 +40,11 @@ $ snapper -c rootfs list
  1  | single |       | Mon 19 Jul 2021 08:59:01 PM PDT | root |          | base_install |
  2  | single |       | Fri 30 Jul 2021 10:00:08 PM PDT | root | timeline | timeline     |
  3  | single |       | Fri 30 Jul 2021 11:00:08 PM PDT | root | timeline | timeline     |
-$ snapper-rollback 2        # let's revert back to the snapshot whos description is "base_install"
+$ snapper-rollback 1        # let's revert back to the snapshot whos description is "base_install"
 Are you SURE you want to rollback? Type 'CONFIRM' to continue: CONFIRM
-2021-10-17 23:25:47,889 - INFO - Rollback to /btrfsroot/@snapshots/2/snapshot complete. Reboot to finish
+2021-10-17 23:25:47,889 - INFO - Rollback to /btrfsroot/@snapshots/1/snapshot complete. Reboot to finish
 ```
 
 ## Credits
 [@GabTheBab](https://github.com/GabTheBab) for creating the first iteration of this script and for sharing it on the AUR.
-Original repo here: https://gitlab.freedesktop.org/Gabby/rollback/-/blob/master/rollback
+Original repo here: https://gitlab.freedesktop.org/Gabby/rollback
