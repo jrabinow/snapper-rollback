@@ -88,8 +88,8 @@ def mount_subvol_id5(target, source=None, dry_run=False):
 
 def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run=False):
     """
-    Rename root subvolume, then create a snapshot of the subvolume to
-    the old root location
+    Rename linux root subvolume, then create a snapshot of the subvolume to
+    the old linux root location
     """
     try:
         if dry_run:
@@ -116,7 +116,7 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
     except btrfsutil.BtrfsUtilError as e:
         # Handle errors from btrfs utilities
         LOG.error("{e}")
-        # Move old root back if btrfs utilities fail
+        # Restore old linux root if btrfs utilities fail
         if not os.path.isdir(subvol_main):
             LOG.info(f"Moving {subvol_main_newname} back to {subvol_main}")
             if dry_run:
