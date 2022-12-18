@@ -196,7 +196,6 @@ def main():
         subvol_main_dst = (
             subvol_rollback_dir / "snapshot"
         )
-        print(subvol_main_dst)
         os.mkdir(mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number )
         rollback(
             subvol_main,
