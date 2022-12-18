@@ -8,6 +8,7 @@ https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout
 """
 
 from datetime import datetime
+import xml.dom.minidom as minidom
 
 import argparse
 import btrfsutil
@@ -48,6 +49,36 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def generateXML(fileName,type,num,date,description,cleanup) :
+
+  #root = xmltree.Element("snapshot")
+  info = minidom.parseString("""<?xml version="1.0"?>
+  <snapshot/>""")
+  root = info.documentElement
+  
+  xml_type = info.createElement("type")
+  xml_type.appendChild(info.createTextNode(type))
+  root.appendChild(xml_type)
+
+  xml_num = info.createElement("num")
+  xml_num.appendChild(info.createTextNode(num))
+  root.appendChild(xml_num)
+
+  xml_date = info.createElement("date")
+  xml_date.appendChild(info.createTextNode(date))
+  root.appendChild(xml_date)
+
+  xml_description = info.createElement("description")
+  xml_description.appendChild(info.createTextNode(description))
+  root.appendChild(xml_description)
+
+  xml_cleanup = info.createElement("cleanup")
+  xml_cleanup.appendChild(info.createTextNode(cleanup))
+  root.appendChild(xml_cleanup)
+
+  file = open(fileName, "w")
+  file.write(info.toprettyxml(indent="  "))
+  file.close
 
 def read_config(configfile):
     config = configparser.ConfigParser()
@@ -134,6 +165,7 @@ def main():
     subvol_rollback_src = (
         mountpoint / config.get("root", "subvol_snapshots") / args.snap_id / "snapshot"
     )
+
     try:
         dev = config.get("root", "dev")
     except configparser.NoOptionError as e:
@@ -150,17 +182,30 @@ def main():
     except KeyboardInterrupt as e:
         sys.exit(1)
 
-    date = datetime.now().strftime("%Y-%m-%dT%H:%M")
-    subvol_main_newname = pathlib.Path(f"{subvol_main}{date}")
+    subvol_main_newname = pathlib.Path(f"{subvol_main}")
+    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
+        subvol_main_snapshot_number = str(int(os.listdir(path= 
+                                                         mountpoint / config.get("root", "subvol_snapshots")
+                                                         )[-1])+1
+                                          )
+        subvol_rollback_dir = (
+                mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number
+                )
+        subvol_main_dst = (
+            subvol_rollback_dir / "snapshot"
+        )
+        print(subvol_main_dst)
+        os.mkdir(mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number )
         rollback(
             subvol_main,
-            subvol_main_newname,
+            subvol_main_dst,
             subvol_rollback_src,
             dev,
             dry_run=args.dry_run,
         )
+        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number")
     except PermissionError as e:
         LOG.fatal("Permission denied: {}".format(e))
         exit(1)
