@@ -49,7 +49,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def generateXML(fileName,type,num,date,description,cleanup) :
+def generateXML(fileName,type,num,date,description,cleanup,dry_run=False) :
 
   #root = xmltree.Element("snapshot")
   info = minidom.parseString("""<?xml version="1.0"?>
@@ -76,9 +76,12 @@ def generateXML(fileName,type,num,date,description,cleanup) :
   xml_cleanup.appendChild(info.createTextNode(cleanup))
   root.appendChild(xml_cleanup)
 
-  file = open(fileName, "w")
-  file.write(info.toprettyxml(indent="  "))
-  file.close
+  if dry_run:
+    LOG.info("Writing xml to {}".format(fileName))
+  else:
+    file = open(fileName, "w")
+    file.write(info.toprettyxml(indent="  "))
+    file.close
 
 def read_config(configfile):
     config = configparser.ConfigParser()
@@ -155,6 +158,22 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
             else:
                 os.rename(subvol_main_newname, subvol_main)
 
+def getNextSubvolumeNumber(mountpoint,config,dry_run=False):
+  if dry_run: 
+    subvol_main_snapshot_number = "<next_snapshot_number>"
+  else:
+    subvol_main_snapshot_number = str(int(os.listdir(path= 
+                                               mountpoint / config.get("root", "subvol_snapshots")
+                                               )[-1])+1
+                                )
+  return subvol_main_snapshot_number
+
+def createNextSubvolumeNumber(mountpoint,config,dest,dry_run=False):
+  if dry_run: 
+    LOG.info("Creating directory at {}".format(mountpoint / config.get("root", "subvol_snapshots") / dest))
+  else:
+    os.mkdir(mountpoint / config.get("root", "subvol_snapshots") / dest )
+
 
 def main():
     args = parse_args()
@@ -181,22 +200,19 @@ def main():
             sys.exit(0)
     except KeyboardInterrupt as e:
         sys.exit(1)
-
     subvol_main_newname = pathlib.Path(f"{subvol_main}")
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
-        subvol_main_snapshot_number = str(int(os.listdir(path= 
-                                                         mountpoint / config.get("root", "subvol_snapshots")
-                                                         )[-1])+1
-                                          )
+        
+        subvol_main_snapshot_number = getNextSubvolumeNumber(mountpoint,config,args.dry_run)
         subvol_rollback_dir = (
                 mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number
                 )
         subvol_main_dst = (
             subvol_rollback_dir / "snapshot"
         )
-        os.mkdir(mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number )
+        createNextSubvolumeNumber(mountpoint,config,subvol_rollback_dir,args.dry_run)
         rollback(
             subvol_main,
             subvol_main_dst,
@@ -204,7 +220,7 @@ def main():
             dev,
             dry_run=args.dry_run,
         )
-        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number")
+        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number", args.dry_run)
     except PermissionError as e:
         LOG.fatal("Permission denied: {}".format(e))
         exit(1)
