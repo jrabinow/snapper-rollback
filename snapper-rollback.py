@@ -77,7 +77,7 @@ def generateXML(fileName,type,num,date,description,cleanup,dry_run=False) :
   root.appendChild(xml_cleanup)
 
   if dry_run:
-    LOG.info("Writing xml to {}".format(fileName))
+    LOG.info("Writing info.xml to {}".format(fileName))
   else:
     file = open(fileName, "w")
     file.write(info.toprettyxml(indent="  "))
@@ -160,7 +160,7 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
 
 def getNextSubvolumeNumber(mountpoint,config,dry_run=False):
   if dry_run: 
-    subvol_main_snapshot_number = "<next_snapshot_number>"
+    subvol_main_snapshot_number = str(int(os.listdir(path= "/.snapshots")[-1])+1)
   else:
     subvol_main_snapshot_number = str(int(os.listdir(path= 
                                                mountpoint / config.get("root", "subvol_snapshots")
@@ -213,6 +213,7 @@ def main():
             subvol_rollback_dir / "snapshot"
         )
         createNextSubvolumeNumber(mountpoint,config,subvol_rollback_dir,args.dry_run)
+        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number", args.dry_run)
         rollback(
             subvol_main,
             subvol_main_dst,
@@ -220,7 +221,6 @@ def main():
             dev,
             dry_run=args.dry_run,
         )
-        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number", args.dry_run)
     except PermissionError as e:
         LOG.fatal("Permission denied: {}".format(e))
         exit(1)
