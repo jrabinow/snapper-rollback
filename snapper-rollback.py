@@ -49,39 +49,46 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def generateXML(fileName,type,num,date,description,cleanup,dry_run=False) :
 
-  #root = xmltree.Element("snapshot")
-  info = minidom.parseString("""<?xml version="1.0"?>
-  <snapshot/>""")
-  root = info.documentElement
-  
-  xml_type = info.createElement("type")
-  xml_type.appendChild(info.createTextNode(type))
-  root.appendChild(xml_type)
+def generateXML(file_name, num, description, cleanup, dry_run=False):
 
-  xml_num = info.createElement("num")
-  xml_num.appendChild(info.createTextNode(num))
-  root.appendChild(xml_num)
+    # root = xmltree.Element("snapshot")
+    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    type = "single"
 
-  xml_date = info.createElement("date")
-  xml_date.appendChild(info.createTextNode(date))
-  root.appendChild(xml_date)
+    info = minidom.parseString(
+        """<?xml version="1.0"?>
+  <snapshot/>"""
+    )
+    root = info.documentElement
 
-  xml_description = info.createElement("description")
-  xml_description.appendChild(info.createTextNode(description))
-  root.appendChild(xml_description)
+    xml_type = info.createElement("type")
+    xml_type.appendChild(info.createTextNode(type))
+    root.appendChild(xml_type)
 
-  xml_cleanup = info.createElement("cleanup")
-  xml_cleanup.appendChild(info.createTextNode(cleanup))
-  root.appendChild(xml_cleanup)
+    xml_num = info.createElement("num")
+    xml_num.appendChild(info.createTextNode(num))
+    root.appendChild(xml_num)
 
-  if dry_run:
-    LOG.info("Writing info.xml to {}".format(fileName))
-  else:
-    file = open(fileName, "w")
-    file.write(info.toprettyxml(indent="  "))
-    file.close
+    xml_date = info.createElement("date")
+    xml_date.appendChild(info.createTextNode(date))
+    root.appendChild(xml_date)
+
+    xml_description = info.createElement("description")
+    xml_description.appendChild(info.createTextNode(description))
+    root.appendChild(xml_description)
+
+    xml_cleanup = info.createElement("cleanup")
+    xml_cleanup.appendChild(info.createTextNode(cleanup))
+    root.appendChild(xml_cleanup)
+
+    if dry_run:
+        LOG.info("Writing info.xml to {}".format(file_name))
+    else:
+        # file = open(file_name, "w")
+        with open(file_name, "w") as file:
+            file.write(info.toprettyxml(indent="  "))
+
 
 def read_config(configfile):
     config = configparser.ConfigParser()
@@ -158,21 +165,18 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
             else:
                 os.rename(subvol_main_newname, subvol_main)
 
-def getNextSubvolumeNumber(mountpoint,config,dry_run=False):
-  if dry_run: 
-    subvol_main_snapshot_number = str(int(os.listdir(path= "/.snapshots")[-1])+1)
-  else:
-    subvol_main_snapshot_number = str(int(os.listdir(path= 
-                                               mountpoint / config.get("root", "subvol_snapshots")
-                                               )[-1])+1
-                                )
-  return subvol_main_snapshot_number
 
-def createNextSubvolumeNumber(mountpoint,config,dest,dry_run=False):
-  if dry_run: 
-    LOG.info("Creating directory at {}".format(mountpoint / config.get("root", "subvol_snapshots") / dest))
-  else:
-    os.mkdir(mountpoint / config.get("root", "subvol_snapshots") / dest )
+def getNextSubvolumeNumber():
+    subvol_main_snapshot_number = str(int(os.listdir(path="/.snapshots")[-1]) + 1)
+    return subvol_main_snapshot_number
+
+
+def createNextSubvolumeNumber(mountpoint, config, dest, dry_run=False):
+    target = mountpoint / config.get("root", "subvol_snapshots") / dest
+    if dry_run:
+        LOG.info("Creating directory at {}".format(target))
+    else:
+        ensure_dir(target, dry_run=dry_run)
 
 
 def main():
@@ -200,20 +204,24 @@ def main():
             sys.exit(0)
     except KeyboardInterrupt as e:
         sys.exit(1)
-    subvol_main_newname = pathlib.Path(f"{subvol_main}")
-    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
-        
-        subvol_main_snapshot_number = getNextSubvolumeNumber(mountpoint,config,args.dry_run)
+
+        subvol_main_snapshot_number = getNextSubvolumeNumber()
         subvol_rollback_dir = (
-                mountpoint / config.get("root", "subvol_snapshots") / subvol_main_snapshot_number
-                )
-        subvol_main_dst = (
-            subvol_rollback_dir / "snapshot"
+            mountpoint
+            / config.get("root", "subvol_snapshots")
+            / subvol_main_snapshot_number
         )
-        createNextSubvolumeNumber(mountpoint,config,subvol_rollback_dir,args.dry_run)
-        generateXML(subvol_rollback_dir / "info.xml", "single", subvol_main_snapshot_number, date, "snapper-rollback", "number", args.dry_run)
+        subvol_main_dst = subvol_rollback_dir / "snapshot"
+        createNextSubvolumeNumber(mountpoint, config, subvol_rollback_dir, args.dry_run)
+        generateXML(
+            subvol_rollback_dir / "info.xml",
+            subvol_main_snapshot_number,
+            "snapper-rollback: Rollback to " + args.snap_id,
+            "number",
+            args.dry_run,
+        )
         rollback(
             subvol_main,
             subvol_main_dst,
