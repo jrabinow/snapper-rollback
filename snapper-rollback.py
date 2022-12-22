@@ -166,8 +166,23 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
                 os.rename(subvol_main_newname, subvol_main)
 
 
-def getNextSubvolumeNumber():
-    subvol_main_snapshot_number = str(int(os.listdir(path="/.snapshots")[-1]) + 1)
+def getNextSnapshotNumber():
+    snap_id_offset = 1
+    subvol_main_snapshot_number = ""
+    snapshot_dir = os.listdir(path="/.snapshots")
+    snapshot_dir_length = len(snapshot_dir)
+
+    while subvol_main_snapshot_number == "":
+        try:
+            subvol_main_snapshot_number = str(int(snapshot_dir[-snap_id_offset]) + 1)
+        except:
+            snap_id_offset += 1
+            snapshot_dir_length -= 1
+
+        if snapshot_dir_length == 0:
+            LOG.warning("No numbered snapshot id exits, using 1 as snapshot number")
+            subvol_main_snapshot_number = "1"
+
     return subvol_main_snapshot_number
 
 
@@ -207,7 +222,7 @@ def main():
     try:
         mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
 
-        subvol_main_snapshot_number = getNextSubvolumeNumber()
+        subvol_main_snapshot_number = getNextSnapshotNumber()
         subvol_rollback_dir = (
             mountpoint
             / config.get("root", "subvol_snapshots")
