@@ -50,16 +50,24 @@ def parse_args():
     return args
 
 
-def generateXML(file_name, num, description, cleanup, dry_run=False):
+def generateXML(file_name, num, src_id, dry_run=False):
 
-    # root = xmltree.Element("snapshot")
+    snapshot_info = minidom.parse("/.snapshots/{}/info.xml".format(src_id))
+    snapshot_date_element = snapshot_info.getElementsByTagName("date")[0]
+    snapshot_date = snapshot_date_element.firstChild.data
+
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     type = "single"
+    cleanup = "number"
+    description = "snapper-rollback: Rollback to snapshot #{} (snapshot creation date: {})".format(
+        src_id, snapshot_date
+    )
 
     info = minidom.parseString(
         """<?xml version="1.0"?>
   <snapshot/>"""
     )
+
     root = info.documentElement
 
     xml_type = info.createElement("type")
@@ -180,7 +188,7 @@ def getNextSnapshotNumber():
             snapshot_dir_length -= 1
 
         if snapshot_dir_length == 0:
-            LOG.warning("No numbered snapshot id exits, using 1 as snapshot number")
+            LOG.warning("No numbered snapshot ID exits, using 1 as the snapshot number")
             subvol_main_snapshot_number = "1"
 
     return subvol_main_snapshot_number
@@ -188,10 +196,7 @@ def getNextSnapshotNumber():
 
 def createNextSubvolumeNumber(mountpoint, config, dest, dry_run=False):
     target = mountpoint / config.get("root", "subvol_snapshots") / dest
-    if dry_run:
-        LOG.info("Creating directory at {}".format(target))
-    else:
-        ensure_dir(target, dry_run=dry_run)
+    ensure_dir(target, dry_run=dry_run)
 
 
 def main():
@@ -233,8 +238,7 @@ def main():
         generateXML(
             subvol_rollback_dir / "info.xml",
             subvol_main_snapshot_number,
-            "snapper-rollback: Rollback to " + args.snap_id,
-            "number",
+            args.snap_id,
             args.dry_run,
         )
         rollback(
