@@ -8,6 +8,8 @@ https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout
 """
 
 from datetime import datetime
+from datetime import timezone
+from dateutil import tz
 import xml.dom.minidom as minidom
 
 import argparse
@@ -52,11 +54,17 @@ def parse_args():
 
 def generateXML(file_name, num, src_id, dry_run=False):
 
+    date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
     snapshot_info = minidom.parse("/.snapshots/{}/info.xml".format(src_id))
     snapshot_date_element = snapshot_info.getElementsByTagName("date")[0]
-    snapshot_date = snapshot_date_element.firstChild.data
+    snapshot_date_utc = datetime.strptime(
+        snapshot_date_element.firstChild.data, "%Y-%m-%d %H:%M:%S"
+    ).replace(tzinfo=timezone.utc)
+    snapshot_date = snapshot_date_utc.astimezone(tz.tzlocal()).strftime(
+        "%Y-%m-%d %H:%M:%S UTC%Z"
+    )
 
-    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     type = "single"
     cleanup = "number"
     description = "snapper-rollback: Rollback to snapshot #{} (snapshot creation date: {})".format(
