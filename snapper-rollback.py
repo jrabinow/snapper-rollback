@@ -50,7 +50,7 @@ def parse_args():
 
 
 def read_config(configfile):
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser({"external_boot":"False"})
     config.read(configfile)
     return config
 
