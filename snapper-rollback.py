@@ -62,7 +62,7 @@ def generateXML(file_name, num, src_id, dry_run=False):
         snapshot_date_element.firstChild.data, "%Y-%m-%d %H:%M:%S"
     ).replace(tzinfo=timezone.utc)
     snapshot_date = snapshot_date_utc.astimezone(tz.tzlocal()).strftime(
-        "%Y-%m-%d %H:%M:%S UTC%Z"
+        "%Y-%m-%d %H:%M:%S %Z"
     )
 
     type = "single"
