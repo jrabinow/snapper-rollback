@@ -115,7 +115,7 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
         )
     except btrfsutil.BtrfsUtilError as e:
         # Handle errors from btrfs utilities
-        LOG.error("{e}")
+        LOG.error(f"{e}")
         # Restore old linux root if btrfs utilities fail
         if not os.path.isdir(subvol_main):
             LOG.info(f"Moving {subvol_main_newname} back to {subvol_main}")
