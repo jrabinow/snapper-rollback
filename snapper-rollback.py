@@ -106,7 +106,7 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
             btrfsutil.set_default_subvolume(subvol_main)
         LOG.info(
             "{}Rollback to {} complete. Reboot to finish".format(
-                dry_run and "[DRY-RUN MODE] ", subvol_rollback_src
+                "[DRY-RUN MODE] " if dry_run else "", subvol_rollback_src
             )
         )
     except FileNotFoundError as e:
