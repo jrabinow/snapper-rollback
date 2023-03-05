@@ -50,7 +50,7 @@ def parse_args():
 
 
 def read_config(configfile):
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser({"external_boot":"False"})
     config.read(configfile)
     return config
 
@@ -125,10 +125,23 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
                 os.rename(subvol_main_newname, subvol_main)
 
 
+def rollback_boot_partiton(boot_backup_dir,dry_run):
+    full_path = boot_backup_dir+"/boot"
+    if dry_run: 
+        LOG.info("rm -rf /boot/*")
+        LOG.info("cp -a {}/* /boot/".format(full_path))
+    else:
+        os.system("rm -rf /boot/*")
+        os.system("cp -a {}/* /boot/".format(full_path))    
+
+
 def main():
     args = parse_args()
     config = read_config(args.config)
-
+    
+    if os.path.ismount("/boot") and config.get("root", "external_boot") == "False":
+        LOG.warning("/boot is outside the `subvol_main`, your system may not boot after rollback!")
+    
     mountpoint = pathlib.Path(config.get("root", "mountpoint"))
     subvol_main = mountpoint / config.get("root", "subvol_main")
     subvol_rollback_src = (
@@ -164,6 +177,12 @@ def main():
     except PermissionError as e:
         LOG.fatal("Permission denied: {}".format(e))
         exit(1)
+    try:
+        if config.get("root", "external_boot") == "True" and os.path.ismount("/boot"):
+            boot_backup_dir = str(subvol_rollback_src) + config.get("root", "boot_backup_dir")
+            rollback_boot_partiton(boot_backup_dir,dry_run=args.dry_run)
+    except Exception as e:
+        LOG.fatal("Error: {}".format(e))
 
 
 if __name__ == "__main__":
