@@ -8,6 +8,9 @@ https://wiki.archlinux.org/index.php/Snapper#Suggested_filesystem_layout
 """
 
 from datetime import datetime
+from datetime import timezone
+from dateutil import tz
+import xml.dom.minidom as minidom
 
 import argparse
 import btrfsutil
@@ -47,6 +50,60 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
+
+
+def generateXML(file_name, num, src_id, dry_run=False):
+
+    date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    snapshot_info = minidom.parse("/.snapshots/{}/info.xml".format(src_id))
+    snapshot_date_element = snapshot_info.getElementsByTagName("date")[0]
+    snapshot_date_utc = datetime.strptime(
+        snapshot_date_element.firstChild.data, "%Y-%m-%d %H:%M:%S"
+    ).replace(tzinfo=timezone.utc)
+    snapshot_date = snapshot_date_utc.astimezone(tz.tzlocal()).strftime(
+        "%Y-%m-%d %H:%M:%S %Z"
+    )
+
+    type = "single"
+    cleanup = "number"
+    description = "snapper-rollback: Rollback to snapshot #{} (snapshot creation date: {})".format(
+        src_id, snapshot_date
+    )
+
+    info = minidom.parseString(
+        """<?xml version="1.0"?>
+  <snapshot/>"""
+    )
+
+    root = info.documentElement
+
+    xml_type = info.createElement("type")
+    xml_type.appendChild(info.createTextNode(type))
+    root.appendChild(xml_type)
+
+    xml_num = info.createElement("num")
+    xml_num.appendChild(info.createTextNode(num))
+    root.appendChild(xml_num)
+
+    xml_date = info.createElement("date")
+    xml_date.appendChild(info.createTextNode(date))
+    root.appendChild(xml_date)
+
+    xml_description = info.createElement("description")
+    xml_description.appendChild(info.createTextNode(description))
+    root.appendChild(xml_description)
+
+    xml_cleanup = info.createElement("cleanup")
+    xml_cleanup.appendChild(info.createTextNode(cleanup))
+    root.appendChild(xml_cleanup)
+
+    if dry_run:
+        LOG.info("Writing info.xml to {}".format(file_name))
+    else:
+        # file = open(file_name, "w")
+        with open(file_name, "w") as file:
+            file.write(info.toprettyxml(indent="  "))
 
 
 def read_config(configfile):
@@ -125,6 +182,31 @@ def rollback(subvol_main, subvol_main_newname, subvol_rollback_src, dev, dry_run
                 os.rename(subvol_main_newname, subvol_main)
 
 
+def getNextSnapshotNumber():
+    snap_id_offset = 1
+    subvol_main_snapshot_number = ""
+    snapshot_dir = os.listdir(path="/.snapshots")
+    snapshot_dir_length = len(snapshot_dir)
+
+    while subvol_main_snapshot_number == "":
+        try:
+            subvol_main_snapshot_number = str(int(snapshot_dir[-snap_id_offset]) + 1)
+        except:
+            snap_id_offset += 1
+            snapshot_dir_length -= 1
+
+        if snapshot_dir_length == 0:
+            LOG.warning("No numbered snapshot ID exits, using 1 as the snapshot number")
+            subvol_main_snapshot_number = "1"
+
+    return subvol_main_snapshot_number
+
+
+def createNextSubvolumeNumber(mountpoint, config, dest, dry_run=False):
+    target = mountpoint / config.get("root", "subvol_snapshots") / dest
+    ensure_dir(target, dry_run=dry_run)
+
+
 def main():
     args = parse_args()
     config = read_config(args.config)
@@ -134,6 +216,7 @@ def main():
     subvol_rollback_src = (
         mountpoint / config.get("root", "subvol_snapshots") / args.snap_id / "snapshot"
     )
+
     try:
         dev = config.get("root", "dev")
     except configparser.NoOptionError as e:
@@ -149,14 +232,26 @@ def main():
             sys.exit(0)
     except KeyboardInterrupt as e:
         sys.exit(1)
-
-    date = datetime.now().strftime("%Y-%m-%dT%H:%M")
-    subvol_main_newname = pathlib.Path(f"{subvol_main}{date}")
     try:
         mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
+
+        subvol_main_snapshot_number = getNextSnapshotNumber()
+        subvol_rollback_dir = (
+            mountpoint
+            / config.get("root", "subvol_snapshots")
+            / subvol_main_snapshot_number
+        )
+        subvol_main_dst = subvol_rollback_dir / "snapshot"
+        createNextSubvolumeNumber(mountpoint, config, subvol_rollback_dir, args.dry_run)
+        generateXML(
+            subvol_rollback_dir / "info.xml",
+            subvol_main_snapshot_number,
+            args.snap_id,
+            args.dry_run,
+        )
         rollback(
             subvol_main,
-            subvol_main_newname,
+            subvol_main_dst,
             subvol_rollback_src,
             dev,
             dry_run=args.dry_run,
